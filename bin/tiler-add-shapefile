@@ -1,0 +1,9 @@
+#!/bin/bash
+
+DST=$1
+LAYER=$2
+SRC=$3
+
+echo "Adding $SRC to $LAYER in $DST ...";
+ogr2ogr -f 'ESRI Shapefile' -update -append "$DST" "$SRC" -nln "${LAYER}" 
+echo "done."

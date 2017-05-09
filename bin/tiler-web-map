@@ -1,0 +1,99 @@
+#!/bin/bash
+
+OUTPUTDIR=$1
+TILEURITEMPLATE=$2
+
+mkdir -p "$OUTPUTDIR"
+
+cat << EOF > "${OUTPUTDIR}/index.html"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Map</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+<script src='https://api.mapbox.com/mapbox-gl-js/v0.35.1/mapbox-gl.js'></script>
+<link href='https://api.mapbox.com/mapbox-gl-js/v0.35.1/mapbox-gl.css' rel='stylesheet' />
+
+    <style>
+        body { margin:0; padding:0; }
+        #map { position:absolute; top:0; bottom:0; width:100%; }
+    </style>
+</head>
+<body>
+
+<div id='map'></div>
+<script src="app.js">
+</script>
+
+</body>
+</html>
+EOF
+
+cat << EOF > "${OUTPUTDIR}/app.js"
+
+var url = '${TILEURITEMPLATE}'
+console.log(url);
+
+mapboxgl.accessToken = 'xxx'; // Only needed if you use MapBox styles below, not needed by default
+
+var roadlayers = [
+    {
+        "id": "road",
+        "type": "line",
+        "source": "Road",
+        "source-layer": "Road",
+        "minzoom": 0,
+        "maxzoom": 14,
+        "paint": {
+          "line-color": "#333",
+          "line-width": 0.3
+        }
+    }
+]
+
+var map = new mapboxgl.Map({
+    container: 'map',
+     style: 'style.json',
+    // style: 'mapbox://styles/mapbox/streets-v9',
+    zoom: 12,
+    minzoom: 0,
+    maxzoom: 14,
+    center: [-0.1047, 51.5236]
+});
+
+map.on('load', function () {
+    console.log("Map ready to add vector tiles", url)
+    map.addSource('Road', {
+        "type": "vector",
+        "tiles": [url],
+    });
+    roadlayers.forEach(function(tiles){
+        map.addLayer(tiles);
+    });
+});
+
+map.addControl(new mapboxgl.NavigationControl());
+EOF
+
+cat << EOF > "${OUTPUTDIR}/style.json"
+{
+  "version": 8,
+  "name": "Empty",
+  "metadata": {
+    "mapbox:autocomposite": true
+  },
+  "glyphs": "mapbox://fonts/mapbox/{fontstack}/{range}.pbf",
+  "sources": {},
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "rgba(0,0,0,0)"
+      }
+    }
+  ]
+}
+EOF

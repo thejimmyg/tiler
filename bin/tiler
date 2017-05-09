@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -e
+# export PATH=$PWD/bin:$PATH
+
+if [ "$#" -ne 3 ] || ! [ -d "$1" ]; then
+  echo "Usage: $0 SRC DST LAYERNAME" >&2
+  exit 1
+fi
+
+SRC=$1
+DST=$2
+LAYER=$3
+
+mkdir -p "$DST"
+mkdir "$DST/build"
+
+echo "Checking dependencies ..."
+brew install gdal tippecanoe
+echo "done."
+echo "Unzipping archives ..."
+tiler-find $SRC .zip | xargs -n1 unzip -d "$DST/build/shapefiles"
+echo "done."
+echo "Finding $LAYER shapefiles ..."
+tiler-find "$DST/build/shapefiles" "_${LAYER}.shp" > "$DST/build/shapefiles.txt"
+echo "Need to merge these shapefiles:"
+cat "$DST/build/shapefiles.txt"
+echo "Merging ..."
+cat "$DST/build/shapefiles.txt" | tiler-merge-shapefiles "$DST/build/${LAYER}.shp" "$LAYER"
+echo "done."
+tiler-bngshapefile-to-geojson "$DST/build/${LAYER}.shp" "$DST/build/${LAYER}.json"
+echo "Creating the tiles ..."
+tiler-tile "$DST/build/${LAYER}.json" "$DST/www/tiles" --layer "$LAYER" --no-feature-limit --no-tile-size-limit -P
+echo "done."
+echo "Creating a sample web map ..."
+tiler-web-map "$DST/www" "http://localhost:8000/tiles/{z}/{x}/{y}.pbf"
+echo "done."
+echo ""
+echo "Serve your web map like this:"
+echo ""
+echo "  cd $DST/www"
+echo "  python -m SimpleHTTPServer"
+echo ""
+echo "Finished successfully."

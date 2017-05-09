@@ -1,0 +1,23 @@
+#!/bin/bash
+
+TARGETSHAPEFILE=$1
+LAYER=$2
+
+if [ -f "$TARGETSHAPEFILE" ]; then
+  echo "ERROR: File $TARGETSHAPEFILE already exists."
+  exit 1
+fi
+
+# # Create a file with the correct layer named based on the first file:
+read -r firstshapefile
+
+if [ -z "$firstshapefile" ]; then
+    echo "ERROR: No shapefiles specified on stdin"
+    echo "Usage: cat shapefilepaths.txt | $0 target.shp layername"
+    exit 1
+fi
+echo "Creating $TARGETSHAPEFILE using $firstshapefile"
+ogr2ogr -f 'ESRI Shapefile' "$TARGETSHAPEFILE" -nln "${LAYER}" "$firstshapefile"
+echo "done."
+# Add the other layers to it
+cat <&0 | tr \\n \\0 | xargs -n1 -0 tiler-add-shapefile "$TARGETSHAPEFILE" "$LAYER" 

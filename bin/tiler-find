@@ -1,0 +1,6 @@
+#!/bin/bash
+
+FOLDER=$1
+PATTERN=$2
+
+find "$FOLDER" | grep "$PATTERN"
