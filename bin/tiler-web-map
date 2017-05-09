@@ -2,8 +2,9 @@
 
 OUTPUTDIR=$1
 TILEURITEMPLATE=$2
+GZIPFILENAME=$3
 
-mkdir -p "$OUTPUTDIR"
+mkdir -p "${OUTPUTDIR}"
 
 cat << EOF > "${OUTPUTDIR}/index.html"
 <!DOCTYPE html>
@@ -33,29 +34,40 @@ EOF
 
 cat << EOF > "${OUTPUTDIR}/app.js"
 
-var url = '${TILEURITEMPLATE}'
+var url = '${TILEURITEMPLATE}/tiles/{z}/{x}/{y}.pbf'
 console.log(url);
 
 mapboxgl.accessToken = 'xxx'; // Only needed if you use MapBox styles below, not needed by default
 
-var roadlayers = [
+var layers = [
     {
-        "id": "road",
+        "id": "Road",
         "type": "line",
-        "source": "Road",
+        "source": "tiler",
         "source-layer": "Road",
         "minzoom": 0,
         "maxzoom": 14,
         "paint": {
-          "line-color": "#333",
-          "line-width": 0.3
+            "line-color": "#333",
+            "line-width": 0.3
+        }
+    },
+    {
+        "id": "TidalWater",
+        "type": "fill",
+        "source": "tiler",
+        "source-layer": "TidalWater",
+        "minzoom": 1,
+        "maxzoom": 22,
+        "paint": {
+            "fill-pattern": "wave"
         }
     }
 ]
 
 var map = new mapboxgl.Map({
     container: 'map',
-     style: 'style.json',
+    style: 'style.json',
     // style: 'mapbox://styles/mapbox/streets-v9',
     zoom: 12,
     minzoom: 0,
@@ -65,12 +77,12 @@ var map = new mapboxgl.Map({
 
 map.on('load', function () {
     console.log("Map ready to add vector tiles", url)
-    map.addSource('Road', {
+    map.addSource('tiler', {
         "type": "vector",
         "tiles": [url],
     });
-    roadlayers.forEach(function(tiles){
-        map.addLayer(tiles);
+    layers.forEach(function(layer){
+        map.addLayer(layer);
     });
 });
 
@@ -86,6 +98,7 @@ cat << EOF > "${OUTPUTDIR}/style.json"
   },
   "glyphs": "mapbox://fonts/mapbox/{fontstack}/{range}.pbf",
   "sources": {},
+  "sprite": "${TILEURITEMPLATE}/sprite",
   "layers": [
     {
       "id": "background",
@@ -95,5 +108,36 @@ cat << EOF > "${OUTPUTDIR}/style.json"
       }
     }
   ]
+}
+EOF
+
+cat << EOF > "${OUTPUTDIR}/sprite@2x.json"
+  {"wave":{"width":32,"height":32,"x":0,"y":0,"pixelRatio":2}}
+EOF
+cp "${OUTPUTDIR}/sprite@2x.json" "${OUTPUTDIR}/sprite.json"
+
+cat << EOF > "${OUTPUTDIR}/sprite@2x.png.b64"
+iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+g
+vaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4QUJDhIqDfU2cgAAAMVJ
+REFUWMPtlsENgCAMRaVxAOfw7AJu5CSGjVjAnfRkYkixvxSDh3ITWvpb6oMwzfs5
+dBw0dB4uwAW4gBExWtaNnT9SNAsIEohKwVERT3/OlizBUZuqHuA2PlJUlR0RBzfh
+M3AuwlIFalXW3Cf/LlWOtNm/zd1BNQlQTXBEBLqHGURSU0rrodWDRJt5cwGfotiS
+YXcUSzj+HMXSOmkdS78eZ48kwB4Bct41tFTfhloS1vSKmYSIkDebphxAL6Bfgchf
+xS7gAsKhZquStUkdAAAAAElFTkSuQmCC
+EOF
+
+openssl base64 -in "${OUTPUTDIR}/sprite@2x.png.b64" -out "${OUTPUTDIR}/sprite@2x.png" -d
+rm "${OUTPUTDIR}/sprite@2x.png.b64"
+cp "${OUTPUTDIR}/sprite@2x.png" "${OUTPUTDIR}/sprite.png"
+
+echo "If you want to generate more than one sprite, you are best off using https://github.com/mapbox/spritezero-cli"
+
+# live-server --port=8000 --middleware="$PWD/gzip.js" --host=localhost ./
+cat << EOF > "${GZIPFILENAME}"
+module.exports = function(req, res, next) {
+  if (req.url.endsWith('.pbf')) {
+    res.setHeader('Content-Encoding', 'gzip');
+  }
+  next();
 }
 EOF

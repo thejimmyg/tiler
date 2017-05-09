@@ -1,7 +1,7 @@
 #!/bin/bash
 
-GEOJSONFILE=$1
+GEOJSONDIR=$1
 OUTPUTDIR=$2
 
 mkdir -p "$OUTPUTDIR"
-tippecanoe ${@:3} --no-tile-compression --output-to-directory "$OUTPUTDIR" "$GEOJSONFILE"
+tippecanoe ${@:3} --exclude-all --output-to-directory "$OUTPUTDIR" $(find "$GEOJSONDIR" | grep .json)

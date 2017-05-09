@@ -92,15 +92,24 @@ Extract the file and and place it in the `tiler` root directory.
 
 Finally put the two zip files you've downloaded in a directory named `src`.
 
-You are now ready to run tiler, to generate a roads map for London:
-
-```
-tiler src dst Road
-```
+You are now ready to run tiler, to generate a roads map for London with the
+tidal water too using the `tiler` command.
 
 If you look at the `bin/tiler` file you'll see that it just calls other
 `tiler-*` commands which themselves call `gdal` or `tippecanoe`. Feel free to
 tweak the commands for your own use.
+
+By default, the `bin/tiler` script generated gzip-compressed tiles, so to serve
+them, you need a server that adds a `Content-Encoding: gzip` header to the HTTP
+responses. This is great for statically hosting on S3 or Google Cloud Storage,
+but if you want the raw tiles for testing, just add `--no-compression` to the
+`tiler-tile` command.
+
+Run the command like this:
+
+```
+printf "Road\nTidalWater\n" | time tiler src dst
+```
 
 The command you've just run will:
 
@@ -111,7 +120,6 @@ The command you've just run will:
 * Run `tippecanoe` with special options for generating a directory of Mapbox Vector Tiles
 * Generate a sample Mapbox GL JS web app to use your tiles in the `dst/www` directory.
 
-
 The default JavaScript conifg in `dst/www/app.js` is already set up to display
 a map of London with the Road layer you've just built, but you can customise it
 for other layers or locations referring to the [Mapbox GL JS style
@@ -121,8 +129,9 @@ You can now start a server (it doesn't have to be a Python one, any server that
 serves static files such as S3, Nginx or Google Cloud Storage):
 
 ```
-cd dst/www
-python -m SimpleHTTPServer
+npm install -g live-server
+cd dst
+live-server --port=8000 --middleware="$PWD/gzip.js" --host=localhost www
 ```
 
 Now visit your map at http://localhost:8000

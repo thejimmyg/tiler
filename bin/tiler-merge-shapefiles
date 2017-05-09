@@ -8,9 +8,8 @@ if [ -f "$TARGETSHAPEFILE" ]; then
   exit 1
 fi
 
-# # Create a file with the correct layer named based on the first file:
+# Create a file with the correct layer named based on the first file:
 read -r firstshapefile
-
 if [ -z "$firstshapefile" ]; then
     echo "ERROR: No shapefiles specified on stdin"
     echo "Usage: cat shapefilepaths.txt | $0 target.shp layername"
@@ -19,5 +18,10 @@ fi
 echo "Creating $TARGETSHAPEFILE using $firstshapefile"
 ogr2ogr -f 'ESRI Shapefile' "$TARGETSHAPEFILE" -nln "${LAYER}" "$firstshapefile"
 echo "done."
+
 # Add the other layers to it
-cat <&0 | tr \\n \\0 | xargs -n1 -0 tiler-add-shapefile "$TARGETSHAPEFILE" "$LAYER" 
+cat <&0 | while read line; do
+    echo "Converting $line ..."
+    ogr2ogr -f 'ESRI Shapefile' -update -append "$TARGETSHAPEFILE" "$line" -nln "${LAYER}"
+    echo "done."
+done

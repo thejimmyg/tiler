@@ -3,42 +3,46 @@
 set -e
 # export PATH=$PWD/bin:$PATH
 
-if [ "$#" -ne 3 ] || ! [ -d "$1" ]; then
-  echo "Usage: $0 SRC DST LAYERNAME" >&2
+if [ "$#" -ne 2 ] || ! [ -d "$1" ]; then
+  echo "Usage: $0 SRC DST" >&2
   exit 1
 fi
 
 SRC=$1
 DST=$2
-LAYER=$3
+
+echo "Using these dependencies ..."
+ogr2ogr --version
+tippecanoe -v || echo ""
 
 mkdir -p "$DST"
 mkdir "$DST/build"
 
-echo "Checking dependencies ..."
-brew install gdal tippecanoe
-echo "done."
 echo "Unzipping archives ..."
 tiler-find $SRC .zip | xargs -n1 unzip -d "$DST/build/shapefiles"
 echo "done."
-echo "Finding $LAYER shapefiles ..."
-tiler-find "$DST/build/shapefiles" "_${LAYER}.shp" > "$DST/build/shapefiles.txt"
-echo "Need to merge these shapefiles:"
-cat "$DST/build/shapefiles.txt"
-echo "Merging ..."
-cat "$DST/build/shapefiles.txt" | tiler-merge-shapefiles "$DST/build/${LAYER}.shp" "$LAYER"
-echo "done."
-tiler-bngshapefile-to-geojson "$DST/build/${LAYER}.shp" "$DST/build/${LAYER}.json"
+
+# Run a pipeline for each layer
+cat <&0 | while read LAYER; do
+    echo "Finding $LAYER shapefiles ..."
+    tiler-find "$DST/build/shapefiles" "_${LAYER}.shp" > "$DST/build/${LAYER}_shapefiles.txt"
+    echo "Need to merge these shapefiles:"
+    cat "$DST/build/${LAYER}_shapefiles.txt"
+    cat "$DST/build/${LAYER}_shapefiles.txt" | tiler-merge-shapefiles "$DST/build/${LAYER}.shp" "$LAYER"
+    tiler-bngshapefile-to-geojson "$DST/build/${LAYER}.shp" "$DST/build/${LAYER}.json"
+done
+
 echo "Creating the tiles ..."
-tiler-tile "$DST/build/${LAYER}.json" "$DST/www/tiles" --layer "$LAYER" --no-feature-limit --no-tile-size-limit -P
+tiler-tile "$DST/build" "$DST/www/tiles" --no-feature-limit --no-tile-size-limit
 echo "done."
 echo "Creating a sample web map ..."
-tiler-web-map "$DST/www" "http://localhost:8000/tiles/{z}/{x}/{y}.pbf"
+tiler-web-map "$DST/www" "http://localhost:8000" "$DST/gzip.js"
 echo "done."
 echo ""
-echo "Serve your web map like this:"
+echo "Serve your web map from the compressed tiles like this:"
 echo ""
-echo "  cd $DST/www"
-echo "  python -m SimpleHTTPServer"
+echo "  npm install -g live-server"
+echo "  cd $DST"
+echo "  live-server --port=8000 --middleware=\"\$PWD/gzip.js\" --host=localhost www"
 echo ""
 echo "Finished successfully."
